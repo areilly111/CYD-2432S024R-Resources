@@ -1,0 +1,209 @@
+var dialog = require('dialog');
+var display = require('display');
+var keyboard = require('keyboard');
+var serial = require('serial');
+var gpio = require('gpio');
+var audio = require('audio');
+
+var dialogMessage = dialog.info;
+var dialogChoice = dialog.choice;
+var dialogError = dialog.error;
+var keyboardPrompt = keyboard.keyboard;
+
+var fillScreen = display.fill;
+var serialPrintln = serial.println;
+
+// Device testing application
+// Test touchscreen, and buzzer functionality
+
+// GPIO pin configuration
+var gpio_config = {
+  buzzer_pin: 26,
+};
+
+function testTouchscreen() {
+  dialogMessage("Touch/Button Test\nPress any button to test\nPress ESC to exit", false);
+  serialPrintln("Touchscreen/Button test running...");
+
+  var touch_count = 0;
+  var last_button = "";
+
+  while(true) {
+    // Check for button presses (touch simulation)
+    if(keyboard.getPrevPress()) {
+      touch_count++;
+      last_button = "Prev";
+      serialPrintln("Touch #" + touch_count + ": " + last_button + " button");
+      dialogMessage("Touch #" + touch_count + "\nButton: " + last_button, false);
+      delay(500);  // debounce delay
+    }
+    else if(keyboard.getSelPress()) {
+      touch_count++;
+      last_button = "Select";
+      serialPrintln("Touch #" + touch_count + ": " + last_button + " button");
+      dialogMessage("Touch #" + touch_count + "\nButton: " + last_button, false);
+      delay(500);  // debounce delay
+    }
+    else if(keyboard.getNextPress()) {
+      touch_count++;
+      last_button = "Next";
+      serialPrintln("Touch #" + touch_count + ": " + last_button + " button");
+      dialogMessage("Touch #" + touch_count + "\nButton: " + last_button, false);
+      delay(500);  // debounce delay
+    }
+
+    if(keyboard.getEscPress()) {
+      break;  // exit test
+    }
+
+    delay(100);
+  }
+
+  serialPrintln("Touch test completed. Total presses: " + touch_count);
+  dialogMessage("Test complete!\nTotal presses: " + touch_count, true);
+  fillScreen(0);
+}
+
+function testBuzzer() {
+  var buzzer_modes = {};
+  buzzer_modes["Short beep"] = "short";
+  buzzer_modes["Long beep"] = "long";
+  buzzer_modes["Double beep"] = "double";
+  buzzer_modes["Alarm"] = "alarm";
+  buzzer_modes["Back"] = "";
+
+  while(true) {
+    var choice = dialogChoice(buzzer_modes);
+
+    if(choice == "") {
+      break;  // return to main menu
+    }
+
+    serialPrintln("Buzzer test: " + choice);
+
+    if(choice == "short") {
+      audio.tone(440, 100);  // 440 Hz for 100ms
+      dialogMessage("Short beep test", true);
+    }
+    else if(choice == "long") {
+      audio.tone(440, 500);  // 440 Hz for 500ms
+      dialogMessage("Long beep test", true);
+    }
+    else if(choice == "double") {
+      audio.tone(440, 100);
+      delay(100);
+      audio.tone(440, 100);
+      dialogMessage("Double beep test", true);
+    }
+    else if(choice == "alarm") {
+      // Alarm sequence with varying frequency
+      for(var i = 0; i < 3; i++) {
+        audio.tone(440, 100);
+        delay(100);
+        audio.tone(550, 100);
+        delay(100);
+      }
+      dialogMessage("Alarm test completed", true);
+    }
+
+    fillScreen(0);
+  }
+}
+
+function testDisplay() {
+  dialogMessage("Display test:\nFilling screen with colors", false);
+  serialPrintln("Display test started");
+
+  var test_colors = [
+    0xFF0000,  // Red
+    0x00FF00,  // Green
+    0x0000FF,  // Blue
+    0xFFFF00,  // Yellow
+    0xFF00FF,  // Magenta
+    0x00FFFF,  // Cyan
+    0xFFFFFF   // White
+  ];
+
+  for(var i = 0; i < test_colors.length; i++) {
+    if(keyboard.getEscPress()) {
+      break;
+    }
+    fillScreen(test_colors[i]);
+    delay(500);
+  }
+
+  fillScreen(0);  // Clear screen to black
+  dialogMessage("Display test completed", true);
+  serialPrintln("Display test finished");
+}
+
+function settingsMenu() {
+  while(true) {
+    var settings_options = {};
+    settings_options["Buzzer Pin (current: " + gpio_config.buzzer_pin + ")"] = "buzzer_pin";
+    settings_options["Back"] = "";
+
+    var choice = dialogChoice(settings_options);
+
+    if(choice == "") {
+      break;  // return to main menu
+    }
+
+    var pin_name = "";
+    if(choice == "buzzer_pin") pin_name = "Buzzer";
+
+    var pin_value = keyboardPrompt(String(gpio_config[choice.replace("-", "_")]), 32, pin_name + " pin (0-39)");
+
+    if(pin_value == "") {
+      continue;  // user cancelled
+    }
+
+    var pin_num = parseInt(pin_value);
+
+    if(isNaN(pin_num) || pin_num < 0 || pin_num > 39) {
+      dialogError("Invalid pin number!\nUse 0-39", true);
+      continue;
+    }
+
+    if(choice == "buzzer_pin") {
+      gpio_config.buzzer_pin = pin_num;
+      serialPrintln("Buzzer pin set to: " + pin_num);
+      dialogMessage("Buzzer pin set to: " + pin_num, true);
+    }
+
+    fillScreen(0);
+  }
+}
+
+while(true) {
+  var menu_options = {};
+  menu_options["Touchscreen Test"] = "touch";
+  menu_options["Buzzer Test"] = "buzzer";
+  menu_options["Display Test"] = "display";
+  menu_options["Settings"] = "settings";
+  menu_options["Exit"] = "exit";
+
+  var choice = dialogChoice(menu_options);
+
+  if(choice == "" || choice == "exit") {
+    break;  // quit application
+  }
+
+  if(choice == "touch") {
+    testTouchscreen();
+  }
+  else if(choice == "buzzer") {
+    testBuzzer();
+  }
+  else if(choice == "display") {
+    testDisplay();
+  }
+  else if(choice == "settings") {
+    settingsMenu();
+  }
+
+  fillScreen(0);  // Clear screen
+}
+
+serialPrintln("Device test app closed");
+
