@@ -39,7 +39,8 @@ As I continue exploring this board, I’ll add:
 - More app ports  
 - Setup instructions for new users  
 - Hardware diagrams and notes  
-- Additional utilities designed for low‑memory CYD boards  
+- Additional utilities designed for low‑memory CYD boards
+- Battery module support (if anyone has this board please reach out i fried my boards BMS within hours)  
 
 ## 🤝 Contributions
 
